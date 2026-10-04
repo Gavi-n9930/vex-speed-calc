@@ -3,135 +3,705 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VEX Drivetrain Speed – RPM to km/h</title>
-  <meta name="description" content="Minimal VEX drivetrain speed calculator: motor RPM and gear ratio to km/h." />
+  <title>VEX Drivetrain Speed & Torque Calculator</title>
+  <meta name="description" content="Clean and comprehensive VEX V5 drivetrain calculator: speed (km/h, mph, ft/s), wheel RPM, stall torque, and pushing force." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg: #0e0f11;
-      --surface: #16181b;
-      --line: #26292e;
-      --text: #eceef1;
-      --muted: #7d828b;
-      --accent: #ff5a4e;
+      --bg: #090a0f;
+      --card-bg: rgba(22, 24, 33, 0.75);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --card-border-hover: rgba(255, 255, 255, 0.16);
+      --text: #f3f4f6;
+      --text-muted: #8e95a5;
+      --text-sub: #5c6270;
+      --speed-accent: #f43f5e;
+      --speed-glow: rgba(244, 63, 94, 0.18);
+      --torque-accent: #3b82f6;
+      --torque-glow: rgba(59, 130, 246, 0.18);
+      --accent: var(--speed-accent);
+      --accent-glow: var(--speed-glow);
+      --inner-input: #11131a;
+      --radius-lg: 20px;
+      --radius-md: 12px;
+      --radius-sm: 8px;
     }
-    @media (prefers-color-scheme: light) {
-      :root { --bg: #f6f6f4; --surface: #ffffff; --line: #e4e4e0; --text: #16181b; --muted: #8a8d93; }
+
+    body.torque-mode {
+      --accent: var(--torque-accent);
+      --accent-glow: var(--torque-glow);
     }
-    body.torque { --accent: #4e9bff; }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      font-family: 'Inter', system-ui, sans-serif;
-      background: var(--bg); color: var(--text);
-      min-height: 100vh; display: grid; place-items: center; padding: 24px;
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 16px 56px;
       -webkit-font-smoothing: antialiased;
+      background-image: 
+        radial-gradient(ellipse 60% 40% at 50% -10%, var(--accent-glow), transparent 70%),
+        radial-gradient(circle at 100% 100%, rgba(255,255,255,0.02), transparent 40%);
+      transition: background-image 0.5s ease;
     }
-    main { width: 100%; max-width: 380px; }
 
-    h1 { font-size: .8rem; font-weight: 500; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 28px; }
-
-    /* Result */
-    .result { margin-bottom: 36px; }
-    .kph { font-size: 4.5rem; font-weight: 600; letter-spacing: -.04em; line-height: 1; font-variant-numeric: tabular-nums; }
-    .kph small { font-size: 1rem; font-weight: 500; color: var(--muted); letter-spacing: 0; margin-left: 6px; }
-    .sub { margin-top: 10px; color: var(--muted); font-size: .9rem; font-variant-numeric: tabular-nums; }
-    .sub b { color: var(--text); font-weight: 500; }
-
-    /* Toggle */
-    .toggle { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 10px; padding: 3px; margin-bottom: 20px; position: relative; }
-    .toggle::before {
-      content: ''; position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px);
-      background: var(--accent); border-radius: 7px; transition: transform .25s ease, background .25s;
+    .container {
+      width: 100%;
+      max-width: 960px;
     }
-    body.torque .toggle::before { transform: translateX(100%); }
-    .toggle button {
-      position: relative; border: 0; background: none; color: var(--muted); cursor: pointer;
-      font: 500 .9rem 'Inter', sans-serif; padding: 10px; transition: color .2s;
-    }
-    .toggle button.active { color: #fff; }
 
-    /* Fields */
-    .field { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid var(--line); }
-    .field label { font-size: .9rem; color: var(--muted); }
-    .field input {
-      width: 120px; text-align: right; background: none; border: 0; outline: none;
-      color: var(--text); font: 500 1rem 'Inter', sans-serif; font-variant-numeric: tabular-nums;
+    /* Header */
+    header {
+      text-align: center;
+      margin-bottom: 28px;
     }
-    .field input::-webkit-outer-spin-button, .field input::-webkit-inner-spin-button { -webkit-appearance: none; }
-    .field input[type=number] { -moz-appearance: textfield; }
-    .field:focus-within { border-color: var(--accent); }
-    .field.error { border-color: #e5484d; }
 
-    footer { margin-top: 28px; font-size: .75rem; color: var(--muted); line-height: 1.5; }
+    .brand-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--accent);
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--card-border);
+      padding: 6px 14px;
+      border-radius: 999px;
+      margin-bottom: 12px;
+      transition: color 0.3s;
+    }
+
+    .brand-badge span {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 10px var(--accent);
+    }
+
+    h1 {
+      font-size: clamp(1.8rem, 4vw, 2.5rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: #fff;
+    }
+
+    header p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-top: 6px;
+    }
+
+    /* Main Grid Layout */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 1fr 1.2fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    @media (max-width: 840px) {
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Glass Panels */
+    .panel {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.5);
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .panel-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+    }
+
+    /* Mode Switcher Toggle */
+    .mode-toggle {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: var(--inner-input);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 4px;
+      position: relative;
+      margin-bottom: 22px;
+    }
+
+    .mode-toggle-slider {
+      position: absolute;
+      top: 4px;
+      bottom: 4px;
+      left: 4px;
+      width: calc(50% - 4px);
+      background: var(--accent);
+      border-radius: 8px;
+      transition: transform 0.28s cubic-bezier(0.3, 0.9, 0.2, 1), background 0.3s;
+      box-shadow: 0 4px 14px var(--accent-glow);
+    }
+
+    body.torque-mode .mode-toggle-slider {
+      transform: translateX(100%);
+    }
+
+    .mode-btn {
+      position: relative;
+      z-index: 1;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 700;
+      padding: 10px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: color 0.2s;
+    }
+
+    .mode-btn.active {
+      color: #fff;
+    }
+
+    /* Form Fields */
+    .input-group {
+      margin-bottom: 18px;
+    }
+
+    .input-label-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 6px;
+    }
+
+    .input-label {
+      font-size: 0.86rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .input-hint {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .input-box {
+      width: 100%;
+      background: var(--inner-input);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      color: #fff;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.1rem;
+      font-weight: 600;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .input-box:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .input-box.error {
+      border-color: #ef4444;
+      background: rgba(239, 68, 68, 0.05);
+    }
+
+    /* Quick Chips */
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .chip {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      font-size: 0.76rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .chip:hover {
+      color: #fff;
+      border-color: var(--card-border-hover);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .chip.active {
+      color: #fff;
+      background: var(--accent);
+      border-color: var(--accent);
+      box-shadow: 0 2px 8px var(--accent-glow);
+    }
+
+    .two-cols {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    /* Primary Hero Metric */
+    .hero-metric {
+      background: var(--inner-input);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 22px 24px;
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    .hero-metric::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 140px;
+      height: 100%;
+      background: radial-gradient(circle at 100% 50%, var(--accent-glow), transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-label {
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .hero-badge {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--accent);
+    }
+
+    .hero-number-row {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .hero-value {
+      font-size: clamp(3.2rem, 7vw, 4.4rem);
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: -0.04em;
+      color: #fff;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .hero-unit {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 0.02em;
+    }
+
+    .hero-sub {
+      margin-top: 8px;
+      font-size: 0.88rem;
+      color: var(--text-muted);
+    }
+
+    .hero-sub strong {
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Stats Grid */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .metric-card {
+      background: var(--inner-input);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      transition: border-color 0.2s, transform 0.15s;
+    }
+
+    .metric-card:hover {
+      border-color: var(--card-border-hover);
+      transform: translateY(-2px);
+    }
+
+    .metric-card-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .metric-card-val {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: #fff;
+      font-family: 'JetBrains Mono', monospace;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .metric-card-sub {
+      font-size: 0.74rem;
+      color: var(--text-sub);
+      margin-top: 2px;
+    }
+
+    /* Footer Notes */
+    footer {
+      text-align: center;
+      margin-top: 36px;
+      color: var(--text-sub);
+      font-size: 0.8rem;
+      line-height: 1.6;
+    }
+
+    footer a {
+      color: var(--text-muted);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      color: #fff;
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
-  <main>
-    <h1>VEX Drivetrain Speed</h1>
+  <div class="container">
+    <header>
+      <div class="brand-badge"><span></span> VEX V5 Robotics</div>
+      <h1>Drivetrain Calculator</h1>
+      <p>Clean theoretical & realistic performance breakdown for competition bots</p>
+    </header>
 
-    <section class="result" aria-live="polite">
-      <div class="kph"><span id="kph">0.0</span><small>km/h</small></div>
-      <p class="sub"><b id="wrpm">0</b> wheel rpm &nbsp;·&nbsp; <b id="tq">0.00</b> N·m / motor</p>
-    </section>
+    <div class="dashboard-grid">
+      <!-- Controls Panel -->
+      <section class="panel" aria-label="Calculator Settings">
+        <div class="panel-header">
+          <span class="panel-title">Gearing & Setup</span>
+        </div>
 
-    <div class="toggle" role="tablist" aria-label="Gearing mode">
-      <button id="btn-speed" class="active" role="tab" aria-selected="true">Speed</button>
-      <button id="btn-torque" role="tab" aria-selected="false">Torque</button>
+        <!-- Mode Toggle -->
+        <div class="mode-toggle" role="tablist">
+          <div class="mode-toggle-slider"></div>
+          <button id="btn-speed" class="mode-btn active" role="tab" aria-selected="true" onclick="setMode('speed')">
+            ⚡ Speed Setup
+          </button>
+          <button id="btn-torque" class="mode-btn" role="tab" aria-selected="false" onclick="setMode('torque')">
+            ⚙️ Torque Setup
+          </button>
+        </div>
+
+        <!-- Motor RPM -->
+        <div class="input-group">
+          <div class="input-label-row">
+            <label class="input-label" for="rpm">Motor RPM</label>
+            <span class="input-hint">Cartridge rating</span>
+          </div>
+          <input id="rpm" class="input-box" type="number" value="600" min="1" step="1" inputmode="numeric" />
+          <div class="chip-row" data-target="rpm">
+            <button class="chip" data-v="100">100 (Red)</button>
+            <button class="chip" data-v="200">200 (Green)</button>
+            <button class="chip active" data-v="600">600 (Blue)</button>
+          </div>
+        </div>
+
+        <!-- Gear Ratio -->
+        <div class="input-group">
+          <div class="input-label-row">
+            <label class="input-label" for="ratio">Gear Ratio</label>
+            <span class="input-hint" id="ratio-direction-hint">Driving : Driven</span>
+          </div>
+          <input id="ratio" class="input-box" type="text" value="84:36" autocomplete="off" />
+          <div class="chip-row" data-target="ratio">
+            <button class="chip" data-v="1:1">1:1</button>
+            <button class="chip active" data-v="84:36">84:36</button>
+            <button class="chip" data-v="60:36">60:36</button>
+            <button class="chip" data-v="48:36">48:36</button>
+            <button class="chip" data-v="36:48">36:48</button>
+            <button class="chip" data-v="36:60">36:60</button>
+            <button class="chip" data-v="3:5">3:5</button>
+          </div>
+        </div>
+
+        <!-- Wheel Size & Motors in 2 columns -->
+        <div class="two-cols">
+          <div class="input-group">
+            <div class="input-label-row">
+              <label class="input-label" for="wheel">Wheel Ø</label>
+              <span class="input-hint">Inches</span>
+            </div>
+            <input id="wheel" class="input-box" type="number" value="3.25" min="0.5" step="0.25" />
+            <div class="chip-row" data-target="wheel">
+              <button class="chip" data-v="2.75">2.75"</button>
+              <button class="chip active" data-v="3.25">3.25"</button>
+              <button class="chip" data-v="4">4.0"</button>
+            </div>
+          </div>
+
+          <div class="input-group">
+            <div class="input-label-row">
+              <label class="input-label" for="motors">Motors</label>
+              <span class="input-hint">11W Count</span>
+            </div>
+            <input id="motors" class="input-box" type="number" value="2" min="1" max="12" step="1" />
+            <div class="chip-row" data-target="motors">
+              <button class="chip active" data-v="2">2m</button>
+              <button class="chip" data-v="4">4m</button>
+              <button class="chip" data-v="6">6m</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Output Metrics Dashboard -->
+      <section class="panel" aria-label="Performance Metrics">
+        <div class="panel-header">
+          <span class="panel-title">Calculated Performance</span>
+          <span id="effective-ratio-tag" style="font-size:0.75rem; color:var(--text-muted); font-family:'JetBrains Mono',monospace;">×2.33 speed multiplier</span>
+        </div>
+
+        <!-- Big Hero Speed -->
+        <div class="hero-metric">
+          <div class="hero-label">
+            <span>Free Speed (Theoretical)</span>
+            <span class="hero-badge" id="hero-badge">⚡ Max Speed</span>
+          </div>
+          <div class="hero-number-row">
+            <span class="hero-value" id="kph">0.0</span>
+            <span class="hero-unit">km/h</span>
+          </div>
+          <div class="hero-sub">
+            Realistic loaded speed (~80%): <strong id="real-kph">0.0 km/h</strong> (<strong id="real-mph">0.0 mph</strong>)
+          </div>
+        </div>
+
+        <!-- Detailed Metrics Grid -->
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-card-title">Wheel Speed (RPM)</div>
+            <div class="metric-card-val" id="wheel-rpm">0</div>
+            <div class="metric-card-sub" id="wheel-rpm-sub">motor 600 × 2.33</div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-card-title">Speed (Imperial)</div>
+            <div class="metric-card-val" id="mph">0.0 <span style="font-size:0.85rem;color:var(--text-muted)">mph</span></div>
+            <div class="metric-card-sub" id="fts">0.0 ft/s</div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-card-title">Linear Speed (m/s)</div>
+            <div class="metric-card-val" id="ms">0.00 <span style="font-size:0.85rem;color:var(--text-muted)">m/s</span></div>
+            <div class="metric-card-sub" id="circumference-sub">wheel circ: 25.9 cm</div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-card-title">Stall Torque / Wheel</div>
+            <div class="metric-card-val" id="torque">0.00 <span style="font-size:0.85rem;color:var(--text-muted)">N·m</span></div>
+            <div class="metric-card-sub" id="torque-sub">0.0 in·lbs / motor</div>
+          </div>
+
+          <div class="metric-card" style="grid-column: span 2;">
+            <div class="metric-card-title">Total Pushing / Traction Force (Stall)</div>
+            <div class="metric-card-val" id="push-force">0 <span style="font-size:0.85rem;color:var(--text-muted)">N</span> <span style="font-size:0.95rem;font-weight:500;color:var(--text-muted);margin-left:8px;">(<span id="push-lbs">0</span> lbs force)</span></div>
+            <div class="metric-card-sub" id="push-sub">Combined output across 2 motors at stall</div>
+          </div>
+        </div>
+      </section>
     </div>
 
-    <div class="field"><label for="rpm">Motor RPM</label><input id="rpm" type="number" min="1" value="600" inputmode="numeric" /></div>
-    <div class="field" id="ratio-field"><label for="ratio">Gear ratio</label><input id="ratio" type="text" value="84:36" autocomplete="off" /></div>
-    <div class="field"><label for="wheel">Wheel (in)</label><input id="wheel" type="number" min="0.1" step="0.25" value="3.25" /></div>
-
-    <footer>Theoretical free speed. Expect ~80% in practice.</footer>
-  </main>
+    <footer>
+      Theoretical free speed calculations assume zero friction/slip. Real V5 robots typically operate at 75–85% of theoretical speed.<br />
+      Torque values are grounded on V5 11W motor stall torque (2.1 N·m @ 100 RPM cartridge).
+    </footer>
+  </div>
 
   <script>
     const $ = id => document.getElementById(id);
     let mode = 'speed';
 
-    // "84:36", "84/36" or "2.33" → magnitude ≥ 1 (direction comes from the toggle)
+    const inputs = {
+      rpm: $('rpm'),
+      ratio: $('ratio'),
+      wheel: $('wheel'),
+      motors: $('motors')
+    };
+
+    // Parse "84:36", "84/36", "2.33" -> magnitude >= 1
     function parseRatio(str) {
-      const s = str.replace(/\s+/g, '');
-      const m = s.match(/^(\d*\.?\d+)[:\/](\d*\.?\d+)$/);
-      const r = m ? parseFloat(m[1]) / parseFloat(m[2]) : (/^\d*\.?\d+$/.test(s) ? parseFloat(s) : NaN);
-      return r > 0 && isFinite(r) ? Math.max(r, 1 / r) : null;
-    }
-
-    function calc() {
-      const rpm = parseFloat($('rpm').value);
-      const wheel = parseFloat($('wheel').value);
-      const r = parseRatio($('ratio').value);
-
-      $('ratio-field').classList.toggle('error', !r);
-      if (!r || !(rpm > 0) || !(wheel > 0)) return;
-
-      const wheelRPM = mode === 'speed' ? rpm * r : rpm / r;
-      const kph = wheelRPM * Math.PI * wheel * 0.0254 * 60 / 1000;
-      const torque = (210 / rpm) * (mode === 'speed' ? 1 / r : r); // V5 11W stall ≈ 2.1 N·m @ 100 rpm
-
-      $('kph').textContent = kph.toFixed(1);
-      $('wrpm').textContent = Math.round(wheelRPM);
-      $('tq').textContent = torque.toFixed(2);
-    }
-
-    function setMode(m) {
-      mode = m;
-      document.body.classList.toggle('torque', m === 'torque');
-      for (const id of ['speed', 'torque']) {
-        $('btn-' + id).classList.toggle('active', id === m);
-        $('btn-' + id).setAttribute('aria-selected', id === m);
+      const s = (str || '').replace(/\s+/g, '');
+      const match = s.match(/^(\d*\.?\d+)[:\/](\d*\.?\d+)$/);
+      if (match) {
+        const a = parseFloat(match[1]);
+        const b = parseFloat(match[2]);
+        if (a > 0 && b > 0) return Math.max(a / b, b / a);
       }
-      calc();
+      const val = parseFloat(s);
+      if (val > 0 && isFinite(val)) {
+        return Math.max(val, 1 / val);
+      }
+      return null;
     }
 
-    $('btn-speed').onclick = () => setMode('speed');
-    $('btn-torque').onclick = () => setMode('torque');
-    document.querySelectorAll('input').forEach(i => i.addEventListener('input', calc));
-    calc();
+    function setMode(newMode) {
+      mode = newMode;
+      document.body.classList.toggle('torque-mode', mode === 'torque');
+
+      const isSpeed = mode === 'speed';
+      $('btn-speed').classList.toggle('active', isSpeed);
+      $('btn-speed').setAttribute('aria-selected', isSpeed);
+      $('btn-torque').classList.toggle('active', !isSpeed);
+      $('btn-torque').setAttribute('aria-selected', !isSpeed);
+
+      $('hero-badge').textContent = isSpeed ? '⚡ Max Speed' : '⚙️ High Torque';
+      recalc();
+    }
+
+    function recalc() {
+      const rpm = parseFloat(inputs.rpm.value);
+      const wheelInches = parseFloat(inputs.wheel.value);
+      const motorCount = Math.max(1, parseInt(inputs.motors.value) || 1);
+      const r = parseRatio(inputs.ratio.value);
+
+      const ratioBox = inputs.ratio;
+      if (!r) {
+        ratioBox.classList.add('error');
+        return;
+      }
+      ratioBox.classList.remove('error');
+
+      if (!(rpm > 0) || !(wheelInches > 0)) return;
+
+      const isSpeed = mode === 'speed';
+      const wheelRPM = isSpeed ? (rpm * r) : (rpm / r);
+      const torqueRatioMult = isSpeed ? (1 / r) : r;
+
+      // Distance & speed
+      const wheelRadiusMeters = (wheelInches * 0.0254) / 2;
+      const wheelCircMeters = 2 * Math.PI * wheelRadiusMeters;
+      const ms = (wheelRPM * wheelCircMeters) / 60;
+      const kph = ms * 3.6;
+      const mph = kph / 1.609344;
+      const fts = ms * 3.28084;
+
+      // Realistic ~80% speed under load
+      const realKph = kph * 0.80;
+      const realMph = mph * 0.80;
+
+      // Torque & Force (V5 11W stall = 210 / rpm N·m)
+      const baseMotorTorqueNm = 210 / rpm;
+      const wheelTorqueNm = baseMotorTorqueNm * torqueRatioMult;
+      const inLbs = wheelTorqueNm * 8.85075;
+
+      const totalPushForceN = (motorCount * wheelTorqueNm) / wheelRadiusMeters;
+      const totalPushLbs = totalPushForceN * 0.224809;
+
+      // Update UI
+      $('kph').textContent = kph.toFixed(1);
+      $('real-kph').textContent = realKph.toFixed(1) + ' km/h';
+      $('real-mph').textContent = realMph.toFixed(1) + ' mph';
+
+      $('wheel-rpm').textContent = Math.round(wheelRPM);
+      $('wheel-rpm-sub').textContent = `motor ${rpm} ${isSpeed ? '×' : '÷'} ${r.toFixed(2)}`;
+
+      $('mph').innerHTML = `${mph.toFixed(1)} <span style="font-size:0.85rem;color:var(--text-muted)">mph</span>`;
+      $('fts').textContent = `${fts.toFixed(1)} ft/s`;
+
+      $('ms').innerHTML = `${ms.toFixed(2)} <span style="font-size:0.85rem;color:var(--text-muted)">m/s</span>`;
+      $('circumference-sub').textContent = `circ: ${(wheelCircMeters * 100).toFixed(1)} cm`;
+
+      $('torque').innerHTML = `${wheelTorqueNm.toFixed(2)} <span style="font-size:0.85rem;color:var(--text-muted)">N·m</span>`;
+      $('torque-sub').textContent = `${inLbs.toFixed(1)} in·lbs / motor`;
+
+      $('push-force').innerHTML = `${Math.round(totalPushForceN)} <span style="font-size:0.85rem;color:var(--text-muted)">N</span> <span style="font-size:0.95rem;font-weight:500;color:var(--text-muted);margin-left:8px;">(${totalPushLbs.toFixed(1)} lbs)</span>`;
+      $('push-sub').textContent = `Combined stall push force across ${motorCount} motors`;
+
+      $('effective-ratio-tag').textContent = `×${r.toFixed(2)} ${isSpeed ? 'speed' : 'torque'} ratio`;
+    }
+
+    // Connect inputs
+    Object.values(inputs).forEach(input => {
+      input.addEventListener('input', () => {
+        syncChipsForInput(input);
+        recalc();
+      });
+    });
+
+    // Chip click handlers
+    document.querySelectorAll('.chip-row').forEach(group => {
+      const targetInput = inputs[group.dataset.target];
+      group.addEventListener('click', e => {
+        const chip = e.target.closest('.chip');
+        if (!chip) return;
+        targetInput.value = chip.dataset.v;
+        syncChipsForInput(targetInput);
+        recalc();
+      });
+    });
+
+    function syncChipsForInput(input) {
+      const group = document.querySelector(`.chip-row[data-target="${input.id}"]`);
+      if (!group) return;
+      const currentVal = input.value.trim();
+      group.querySelectorAll('.chip').forEach(c => {
+        c.classList.toggle('active', c.dataset.v === currentVal);
+      });
+    }
+
+    recalc();
   </script>
 </body>
 </html>
