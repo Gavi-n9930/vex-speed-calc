@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VEX Drivetrain Speed – RPM to km/h</title>
+  <meta name="description" content="Minimal VEX drivetrain speed calculator: motor RPM and gear ratio to km/h." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0e0f11;
+      --surface: #16181b;
+      --line: #26292e;
+      --text: #eceef1;
+      --muted: #7d828b;
+      --accent: #ff5a4e;
+    }
+    @media (prefers-color-scheme: light) {
+      :root { --bg: #f6f6f4; --surface: #ffffff; --line: #e4e4e0; --text: #16181b; --muted: #8a8d93; }
+    }
+    body.torque { --accent: #4e9bff; }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh; display: grid; place-items: center; padding: 24px;
+      -webkit-font-smoothing: antialiased;
+    }
+    main { width: 100%; max-width: 380px; }
+
+    h1 { font-size: .8rem; font-weight: 500; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 28px; }
+
+    /* Result */
+    .result { margin-bottom: 36px; }
+    .kph { font-size: 4.5rem; font-weight: 600; letter-spacing: -.04em; line-height: 1; font-variant-numeric: tabular-nums; }
+    .kph small { font-size: 1rem; font-weight: 500; color: var(--muted); letter-spacing: 0; margin-left: 6px; }
+    .sub { margin-top: 10px; color: var(--muted); font-size: .9rem; font-variant-numeric: tabular-nums; }
+    .sub b { color: var(--text); font-weight: 500; }
+
+    /* Toggle */
+    .toggle { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 10px; padding: 3px; margin-bottom: 20px; position: relative; }
+    .toggle::before {
+      content: ''; position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px);
+      background: var(--accent); border-radius: 7px; transition: transform .25s ease, background .25s;
+    }
+    body.torque .toggle::before { transform: translateX(100%); }
+    .toggle button {
+      position: relative; border: 0; background: none; color: var(--muted); cursor: pointer;
+      font: 500 .9rem 'Inter', sans-serif; padding: 10px; transition: color .2s;
+    }
+    .toggle button.active { color: #fff; }
+
+    /* Fields */
+    .field { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid var(--line); }
+    .field label { font-size: .9rem; color: var(--muted); }
+    .field input {
+      width: 120px; text-align: right; background: none; border: 0; outline: none;
+      color: var(--text); font: 500 1rem 'Inter', sans-serif; font-variant-numeric: tabular-nums;
+    }
+    .field input::-webkit-outer-spin-button, .field input::-webkit-inner-spin-button { -webkit-appearance: none; }
+    .field input[type=number] { -moz-appearance: textfield; }
+    .field:focus-within { border-color: var(--accent); }
+    .field.error { border-color: #e5484d; }
+
+    footer { margin-top: 28px; font-size: .75rem; color: var(--muted); line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>VEX Drivetrain Speed</h1>
+
+    <section class="result" aria-live="polite">
+      <div class="kph"><span id="kph">0.0</span><small>km/h</small></div>
+      <p class="sub"><b id="wrpm">0</b> wheel rpm &nbsp;·&nbsp; <b id="tq">0.00</b> N·m / motor</p>
+    </section>
+
+    <div class="toggle" role="tablist" aria-label="Gearing mode">
+      <button id="btn-speed" class="active" role="tab" aria-selected="true">Speed</button>
+      <button id="btn-torque" role="tab" aria-selected="false">Torque</button>
+    </div>
+
+    <div class="field"><label for="rpm">Motor RPM</label><input id="rpm" type="number" min="1" value="600" inputmode="numeric" /></div>
+    <div class="field" id="ratio-field"><label for="ratio">Gear ratio</label><input id="ratio" type="text" value="84:36" autocomplete="off" /></div>
+    <div class="field"><label for="wheel">Wheel (in)</label><input id="wheel" type="number" min="0.1" step="0.25" value="3.25" /></div>
+
+    <footer>Theoretical free speed. Expect ~80% in practice.</footer>
+  </main>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    let mode = 'speed';
+
+    // "84:36", "84/36" or "2.33" → magnitude ≥ 1 (direction comes from the toggle)
+    function parseRatio(str) {
+      const s = str.replace(/\s+/g, '');
+      const m = s.match(/^(\d*\.?\d+)[:\/](\d*\.?\d+)$/);
+      const r = m ? parseFloat(m[1]) / parseFloat(m[2]) : (/^\d*\.?\d+$/.test(s) ? parseFloat(s) : NaN);
+      return r > 0 && isFinite(r) ? Math.max(r, 1 / r) : null;
+    }
+
+    function calc() {
+      const rpm = parseFloat($('rpm').value);
+      const wheel = parseFloat($('wheel').value);
+      const r = parseRatio($('ratio').value);
+
+      $('ratio-field').classList.toggle('error', !r);
+      if (!r || !(rpm > 0) || !(wheel > 0)) return;
+
+      const wheelRPM = mode === 'speed' ? rpm * r : rpm / r;
+      const kph = wheelRPM * Math.PI * wheel * 0.0254 * 60 / 1000;
+      const torque = (210 / rpm) * (mode === 'speed' ? 1 / r : r); // V5 11W stall ≈ 2.1 N·m @ 100 rpm
+
+      $('kph').textContent = kph.toFixed(1);
+      $('wrpm').textContent = Math.round(wheelRPM);
+      $('tq').textContent = torque.toFixed(2);
+    }
+
+    function setMode(m) {
+      mode = m;
+      document.body.classList.toggle('torque', m === 'torque');
+      for (const id of ['speed', 'torque']) {
+        $('btn-' + id).classList.toggle('active', id === m);
+        $('btn-' + id).setAttribute('aria-selected', id === m);
+      }
+      calc();
+    }
+
+    $('btn-speed').onclick = () => setMode('speed');
+    $('btn-torque').onclick = () => setMode('torque');
+    document.querySelectorAll('input').forEach(i => i.addEventListener('input', calc));
+    calc();
+  </script>
+</body>
+</html>
